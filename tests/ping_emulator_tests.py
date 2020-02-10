@@ -2,6 +2,7 @@ import sys
 import subprocess
 import socket
 import time
+import os
 
 sys.path.append("..")
 
@@ -15,7 +16,7 @@ BASE_ADDRESS_PREFIX = "192.168.111."
 NETMASK_BITS = 24
 
 
-##### WRAPPERS FOR TEST #####
+##### CLASS WRAPPERS FOR TEST #####
 
 class UDPClient(ClientPingEmulator):
 
@@ -51,7 +52,8 @@ def create_dummy_ifaces(ifname, num_of_ifaces):
 		expanded_ifname = ifname + ":" + str(i)
 		address = get_address_by_iface_num(i, should_add_netmask_bits=True)
 		subprocess.run(["ip", "addr", "add", address, "brd", "+", "dev", ifname, "label", expanded_ifname])
-	print("Dummy interfaces created")
+		print("Dummy interfaces with the address", address, "created")
+	print("\nAll dummy interfaces created")
 
 
 def remove_dummy_ifaces(ifname):
@@ -65,6 +67,10 @@ def remove_dummy_ifaces(ifname):
 
 
 def test_ping_emulators():
+	if os.geteuid() != 0:
+		print("Please re-run with root permissions")
+		return    	
+
 	iface_name = "iface_mock"
 	num_of_ifaces = 4
 
@@ -94,12 +100,12 @@ def run_all_tests():
 					 "test_one_UDP_client_with_two_servers"),
 					 (test_one_TCP_client_with_two_servers,
 					 "test_one_TCP_client_with_two_servers"),
-					 (test_two_UDP_client_with_one_server,
-					 "test_two_UDP_client_with_one_server"),
-					 (test_two_TCP_client_with_one_server,
-					 "test_two_TCP_client_with_one_server"),
-					 (test_UDP_and_TCP_clients_with_one_server,
-					 "test_UDP_and_TCP_clients_with_one_server"),
+					 (test_two_UDP_clients_with_one_server,
+					 "test_two_UDP_clients_with_one_server"),
+					 (test_two_TCP_clients_with_one_server,
+					 "test_two_TCP_clients_with_one_server"),
+					 (test_UDP_and_TCP_clients_with_one_server_and_wait_time,
+					 "test_UDP_and_TCP_clients_with_one_server_and_wait_time"),
 					 (test_clients_trying_to_ping_each_other,
 					 "test_clients_trying_to_ping_each_other")]
 	
@@ -277,7 +283,7 @@ def test_one_TCP_client_with_two_servers():
 	return True
 
 
-def test_two_UDP_client_with_one_server():
+def test_two_UDP_clients_with_one_server():
 	udp_client1 = UDPClient(get_address_by_iface_num(1))
 	udp_client2 = UDPClient(get_address_by_iface_num(2))
 	server = Server(get_address_by_iface_num(4))
@@ -299,7 +305,7 @@ def test_two_UDP_client_with_one_server():
 	return True
 
 
-def test_two_TCP_client_with_one_server():
+def test_two_TCP_clients_with_one_server():
 	tcp_client1 = TCPClient(get_address_by_iface_num(1))
 	tcp_client2 = TCPClient(get_address_by_iface_num(2))
 	server = Server(get_address_by_iface_num(4))
@@ -321,10 +327,12 @@ def test_two_TCP_client_with_one_server():
 	return True
 
 
-def test_UDP_and_TCP_clients_with_one_server():
+def test_UDP_and_TCP_clients_with_one_server_and_wait_time():
+	WAIT_TIME = 1.5
 	tcp_client = TCPClient(get_address_by_iface_num(3))
 	udp_client = TCPClient(get_address_by_iface_num(4))
 	server = Server(get_address_by_iface_num(2))
+	time.sleep(WAIT_TIME)
 	expected_ping_result = True
 	actual_ping_result = tcp_client.ping(get_address_by_iface_num(2))
 	if expected_ping_result != actual_ping_result:
